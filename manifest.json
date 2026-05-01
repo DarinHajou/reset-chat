@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Reset Chat",
+  "version": "0.1.0",
+  "description": "Reset long ChatGPT conversations with useful context.",
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["styles.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
