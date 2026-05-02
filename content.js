@@ -96,12 +96,20 @@
   }
 
   function buildRestartPrompt(messages) {
+  const primaryProject = inferPrimaryProject(messages);
+  const metaContext = inferMetaContext(messages);
   const summary = generateProjectSummary(messages);
   const coreDecisions = getCoreDecisions(messages);
   const recentUserInstructions = getRecentUserInstructions(messages);
   const currentProblem = getCurrentProblem(messages);
 
-  return `You are continuing a previous ChatGPT conversation after a reset.
+return `You are continuing a previous ChatGPT conversation after a reset.
+
+## Primary project
+
+${primaryProject}
+
+${metaContext ? `## Meta context\n\n${metaContext}\n` : ""}
 
 ## Project Summary
 
@@ -295,22 +303,22 @@ Important:
     );
   }
 
-  function inferProjectGoal(messages) {
-    const allText = messages.map(m => m.text.toLowerCase()).join(" ");
+ function inferProjectGoal(messages) {
+  const allText = messages.map(m => m.text.toLowerCase()).join(" ");
 
-    if (
-      allText.includes("reset with context") ||
-      allText.includes("chrome extension")
-    ) {
-      return "Improve a Chrome extension that reconstructs ChatGPT context and reduces prompt noise.";
-    }
-
+  if (
+    allText.includes("reset with context") ||
+    allText.includes("chrome extension")
+  ) {
     return "Improve a Chrome extension that reconstructs ChatGPT context and reduces prompt noise.";
   }
 
-  function extractKeySentence(text) {
-    return text.split(".").slice(0, 1).join(".").trim();
-  }
+  return "Improve a Chrome extension that reconstructs ChatGPT context and reduces prompt noise.";
+}
+
+function extractKeySentence(text) {
+  return text.split(".").slice(0, 1).join(".").trim();
+}
 
   function extractStage(messages) {
     const joined = messages.map(m => m.text.toLowerCase()).join(" ");
@@ -321,6 +329,36 @@ Important:
 
     return "active development";
   }
+
+  function inferPrimaryProject(messages) {
+  const text = messages.map(m => m.text.toLowerCase()).join(" ");
+
+  // Detect real product vs tool chatter
+  if (text.includes("map of pi")) {
+    return "Map of Pi — a hybrid marketplace / local commerce platform with seller profiles and optional storefronts.";
+  }
+
+  if (text.includes("chrome extension") || text.includes("reset chat")) {
+    return "A Chrome extension that reconstructs ChatGPT context across sessions.";
+  }
+
+  return "Unknown primary project.";
+}
+
+function inferMetaContext(messages) {
+  const recent = messages.slice(-10).map(m => m.text.toLowerCase()).join(" ");
+
+  if (
+    recent.includes("prompt") ||
+    recent.includes("this tool") ||
+    recent.includes("reset") ||
+    recent.includes("context reconstruction")
+  ) {
+    return "User is currently evaluating a context reconstruction/reset tool.";
+  }
+
+  return "";
+}
 
   function inferNextStep(messages) {
     const text = messages.map(m => m.text.toLowerCase()).join(" ");
