@@ -1,14 +1,14 @@
 #reset-chat-button {
   position: fixed;
   right: 20px;
-  bottom: 90px;
+  bottom: 120px;
   z-index: 999999;
 
   padding: 10px 14px;
-  border: none;
+  border: solid 1px rgb(70, 71, 81);
   border-radius: 999px;
 
-  background: #111827;
+  background: #21293a;
   color: #ffffff;
 
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
