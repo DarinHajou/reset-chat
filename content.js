@@ -273,13 +273,30 @@ ${trimTo(message.text, 1200)}`;
   const assistantHints = assistantMsgs.slice(-2).map(m => m.text).join(" ");
 
   return trimTo(
-    `We are working on: ${extractHighLevelGoal(goal)}
+  `## What matters (read this first)
 
-Current stage: ${extractStage(recent)}
+  We are working on:
+  ${extractHighLevelGoal(goal)}
 
-Recent direction: ${assistantHints}
+  Current stage:
+  ${extractStage(recent)}
 
-Next step likely involves continuing the current implementation.`,
+  Recent direction:
+  ${assistantHints}
+
+  Next step:
+  ${inferNextStep(recent)}
+
+  Constraints:
+  - Keep solution simple
+  - Avoid overengineering
+  - Focus on current working flow
+
+  Important:
+  - Prioritize latest user intent
+  - Continue, do not restart
+
+  `,
     1200
   );
 }
