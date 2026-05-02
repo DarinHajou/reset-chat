@@ -79,13 +79,17 @@
   }
 
   function buildRestartPrompt(messages) {
+    const summary = generateProjectSummary(messages);
     const latestContext = getLatestContext(messages);
     const recentUserInstructions = getRecentUserInstructions(messages);
     const importantParts = getImportantParts(messages);
     const currentProblem = getCurrentProblem(messages);
 
-    return `You are continuing a previous ChatGPT conversation after a reset.
+return `You are continuing a previous ChatGPT conversation after a reset.
 
+## Project Summary
+
+${summary}
 Do not restart from scratch. Continue from the context below.
 
 ## Current problem / active task
@@ -259,6 +263,52 @@ ${trimTo(message.text, 1200)}`;
   function openNewChat() {
     window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
   }
+  function generateProjectSummary(messages) {
+  const recent = messages.slice(-20);
+
+  const userMsgs = recent.filter(m => m.role === "user");
+  const assistantMsgs = recent.filter(m => m.role === "assistant");
+
+  const goal = userMsgs.slice(-3).map(m => m.text).join(" ");
+  const assistantHints = assistantMsgs.slice(-2).map(m => m.text).join(" ");
+
+  return trimTo(
+    `We are working on: ${extractHighLevelGoal(goal)}
+
+Current stage: ${extractStage(recent)}
+
+Recent direction: ${assistantHints}
+
+Next step likely involves continuing the current implementation.`,
+    1200
+  );
+}
+
+function extractHighLevelGoal(text) {
+  return text
+    .split(".")
+    .slice(0, 2)
+    .join(".")
+    .trim();
+}
+
+function extractStage(messages) {
+  const joined = messages.map(m => m.text.toLowerCase()).join(" ");
+
+  if (joined.includes("prototype") || joined.includes("first test")) {
+    return "early prototype / testing";
+  }
+
+  if (joined.includes("mvp")) {
+    return "MVP development";
+  }
+
+  if (joined.includes("debug") || joined.includes("fix")) {
+    return "debugging phase";
+  }
+
+  return "active development";
+}
 
   injectButton();
 
