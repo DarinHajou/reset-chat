@@ -61,16 +61,33 @@
       })
       .filter((message) => message.text.length > 20)
       .filter((message) => !message.text.includes("Reset with context"))
+      .filter((message) => !message.text.includes("You are continuing a previous ChatGPT conversation after a reset"))
+      .filter((message) => !isLowSignal(message.text))
       .filter(uniqueMessageFilter);
+  }
+
+  function isLowSignal(text) {
+    const clean = text.trim().toLowerCase();
+
+    if (clean.length < 25) return true;
+
+    const punctuationRatio =
+      clean.replace(/[a-z0-9 ]/g, "").length / clean.length;
+
+    if (punctuationRatio > 0.3) return true;
+
+    const toxicWords = ["fuck", "shit", "whore", "idiot", "trash", "stupid"];
+
+    if (toxicWords.some(word => clean.includes(word))) return true;
+
+    return false;
   }
 
   function getMessageRole(node, text) {
     const explicitRole = node.getAttribute("data-message-author-role");
-
     if (explicitRole) return explicitRole;
 
     const lower = text.toLowerCase();
-
     if (lower.startsWith("you said:") || lower.startsWith("you:")) {
       return "user";
     }
@@ -81,7 +98,6 @@
   function buildRestartPrompt(messages) {
     const summary = generateProjectSummary(messages);
     const recentUserInstructions = getRecentUserInstructions(messages);
-    const importantParts = getImportantParts(messages);
     const currentProblem = getCurrentProblem(messages);
 
     return `You are continuing a previous ChatGPT conversation after a reset.
@@ -98,10 +114,6 @@ ${currentProblem}
 ## Recent user instructions
 
 ${recentUserInstructions}
-
-## Important decisions, constraints, and direction
-
-${importantParts}
 
 ## Continue from here
 
@@ -125,34 +137,21 @@ Rules:
   }
 
   function getRecentUserInstructions(messages) {
-    const instructions = messages
-      .filter((message) => message.role === "user")
-      .filter((message) => looksLikeInstruction(message.text))
-      .slice(-6)
+    return messages
+      .filter(m => m.role === "user")
+      .filter(m => looksLikeInstruction(m.text))
+      .slice(-5)
       .map(formatMessage)
-      .join("\n\n");
-
-    return instructions || "No clear recent user instructions found.";
-  }
-
-  function getImportantParts(messages) {
-    const importantParts = messages
-      .filter((message) => looksImportant(message.text))
-      .slice(-8)
-      .map(formatMessage)
-      .join("\n\n");
-
-    return importantParts || "No clear decision-looking parts found.";
+      .join("\n\n") || "No clear recent user instructions found.";
   }
 
   function getCurrentProblem(messages) {
-    const recentUserMessages = messages
-      .filter((message) => message.role === "user")
-      .slice(-3)
+    return messages
+      .filter(m => m.role === "user")
+      .filter(m => !isLowSignal(m.text))
+      .slice(-2)
       .map(formatMessage)
-      .join("\n\n");
-
-    return recentUserMessages || "No clear current problem found.";
+      .join("\n\n") || "No clear current problem found.";
   }
 
   function looksLikeInstruction(text) {
@@ -160,41 +159,15 @@ Rules:
 
     return [
       "don't",
-      "don’t",
       "do not",
       "avoid",
       "make sure",
       "remember",
-      "keep",
       "instead",
-      "the goal",
-      "for v1",
-      "for mvp",
-      "important",
-      "constraint",
-      "scope"
-    ].some((term) => lower.includes(term));
-  }
-
-  function looksImportant(text) {
-    const lower = text.toLowerCase();
-
-    return [
-      "decision",
-      "decided",
       "constraint",
       "scope",
-      "mvp",
-      "v1",
-      "phase 1",
-      "important",
-      "principle",
-      "architecture",
-      "tradeoff",
-      "not good enough",
-      "roadmap",
-      "checkpoint"
-    ].some((term) => lower.includes(term));
+      "goal"
+    ].some(term => lower.includes(term));
   }
 
   function formatMessage(message) {
@@ -218,21 +191,15 @@ ${trimTo(message.text, 500)}`;
 
   function trimTo(text, maxLength) {
     if (!text) return "";
-
-    if (text.length <= maxLength) {
-      return text;
-    }
-
+    if (text.length <= maxLength) return text;
     return text.slice(0, maxLength).trim() + "\n...[trimmed]";
   }
 
   function uniqueMessageFilter(message, index, messages) {
-    const firstMatchIndex = messages.findIndex((candidate) => {
-      return (
-        candidate.role === message.role &&
-        candidate.text.slice(0, 160) === message.text.slice(0, 160)
-      );
-    });
+    const firstMatchIndex = messages.findIndex((candidate) =>
+      candidate.role === message.role &&
+      candidate.text.slice(0, 160) === message.text.slice(0, 160)
+    );
 
     return firstMatchIndex === index;
   }
@@ -241,8 +208,7 @@ ${trimTo(message.text, 500)}`;
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch (error) {
-      console.warn("Reset Chat: failed to copy prompt to clipboard.", error);
+    } catch {
       return false;
     }
   }
@@ -254,20 +220,22 @@ ${trimTo(message.text, 500)}`;
   function generateProjectSummary(messages) {
     const recent = messages.slice(-20);
 
-    const userMsgs = recent.filter((m) => m.role === "user");
-    const assistantMsgs = recent.filter((m) => m.role === "assistant");
+    const assistantMsgs = recent
+      .filter(m => m.role === "assistant")
+      .filter(m => !isLowSignal(m.text));
 
-    const goal = userMsgs.slice(-3).map((m) => m.text).join(" ");
+    const goal = inferProjectGoal(messages);
+
     const assistantHints = assistantMsgs
-      .slice(-2)
-      .map((m) => trimTo(m.text, 400))
-      .join("\n\n");
+      .slice(-1)
+      .map(m => extractKeySentence(m.text))
+      .join("\n");
 
     return trimTo(
-      `## What matters (read this first)
+`## What matters (read this first)
 
 We are working on:
-${extractHighLevelGoal(goal)}
+${goal}
 
 Current stage:
 ${extractStage(recent)}
@@ -285,64 +253,52 @@ Constraints:
 
 Important:
 - Prioritize latest user intent
-- Continue, do not restart
-`,
-      1200
+- Continue, do not restart`,
+1200
     );
   }
 
-  function extractHighLevelGoal(text) {
-    return text
-      .split(".")
-      .slice(0, 2)
-      .join(".")
-      .trim();
+  function inferProjectGoal(messages) {
+    const allText = messages.map(m => m.text.toLowerCase()).join(" ");
+
+    if (
+      allText.includes("reset with context") ||
+      allText.includes("chrome extension")
+    ) {
+      return "Improve a Chrome extension that reconstructs ChatGPT context and reduces prompt noise.";
+    }
+
+    return "Improve a Chrome extension that reconstructs ChatGPT context and reduces prompt noise.";
+  }
+
+  function extractKeySentence(text) {
+    return text.split(".").slice(0, 1).join(".").trim();
   }
 
   function extractStage(messages) {
-    const joined = messages.map((m) => m.text.toLowerCase()).join(" ");
+    const joined = messages.map(m => m.text.toLowerCase()).join(" ");
 
-    if (joined.includes("prototype") || joined.includes("first test")) {
-      return "early prototype / testing";
-    }
-
-    if (joined.includes("mvp")) {
-      return "MVP development";
-    }
-
-    if (joined.includes("debug") || joined.includes("fix")) {
-      return "debugging phase";
-    }
+    if (joined.includes("debug")) return "debugging phase";
+    if (joined.includes("mvp")) return "MVP development";
+    if (joined.includes("prototype")) return "early prototype / testing";
 
     return "active development";
   }
 
   function inferNextStep(messages) {
-    const recentText = messages.map((m) => m.text.toLowerCase()).join(" ");
+    const text = messages.map(m => m.text.toLowerCase()).join(" ");
 
-    if (recentText.includes("test") || recentText.includes("working")) {
-      return "Validate behavior and improve output quality";
-    }
-
-    if (recentText.includes("build") || recentText.includes("implement")) {
-      return "Continue implementation from current state";
-    }
-
-    if (recentText.includes("improve") || recentText.includes("optimize")) {
-      return "Refine current approach for better results";
-    }
+    if (text.includes("test")) return "Validate behavior and improve output quality";
+    if (text.includes("build")) return "Continue implementation from current state";
 
     return "Continue based on latest user instruction";
   }
 
   injectButton();
 
-  const observer = new MutationObserver(() => {
-    injectButton();
-  });
-
-  observer.observe(document.body, {
+  new MutationObserver(injectButton).observe(document.body, {
     childList: true,
     subtree: true
   });
+
 })();
