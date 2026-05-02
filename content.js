@@ -80,12 +80,11 @@
 
   function buildRestartPrompt(messages) {
     const summary = generateProjectSummary(messages);
-    const latestContext = getLatestContext(messages);
     const recentUserInstructions = getRecentUserInstructions(messages);
     const importantParts = getImportantParts(messages);
     const currentProblem = getCurrentProblem(messages);
 
-return `You are continuing a previous ChatGPT conversation after a reset.
+    return `You are continuing a previous ChatGPT conversation after a reset.
 
 ## Project Summary
 
@@ -95,10 +94,6 @@ Do not restart from scratch. Continue from the context below.
 ## Current problem / active task
 
 ${currentProblem}
-
-## Latest context
-
-${latestContext}
 
 ## Recent user instructions
 
@@ -129,18 +124,11 @@ Rules:
 - Be practical and concise.`;
   }
 
-  function getLatestContext(messages) {
-    return messages
-      .slice(-12)
-      .map(formatMessage)
-      .join("\n\n");
-  }
-
   function getRecentUserInstructions(messages) {
     const instructions = messages
       .filter((message) => message.role === "user")
       .filter((message) => looksLikeInstruction(message.text))
-      .slice(-10)
+      .slice(-6)
       .map(formatMessage)
       .join("\n\n");
 
@@ -150,7 +138,7 @@ Rules:
   function getImportantParts(messages) {
     const importantParts = messages
       .filter((message) => looksImportant(message.text))
-      .slice(-14)
+      .slice(-8)
       .map(formatMessage)
       .join("\n\n");
 
@@ -160,7 +148,7 @@ Rules:
   function getCurrentProblem(messages) {
     const recentUserMessages = messages
       .filter((message) => message.role === "user")
-      .slice(-4)
+      .slice(-3)
       .map(formatMessage)
       .join("\n\n");
 
@@ -179,7 +167,6 @@ Rules:
       "remember",
       "keep",
       "instead",
-      "we need",
       "the goal",
       "for v1",
       "for mvp",
@@ -202,22 +189,17 @@ Rules:
       "phase 1",
       "important",
       "principle",
-      "goal",
-      "current problem",
       "architecture",
       "tradeoff",
       "not good enough",
-      "we should",
-      "we need",
       "roadmap",
-      "project",
       "checkpoint"
     ].some((term) => lower.includes(term));
   }
 
   function formatMessage(message) {
     return `### ${normalizeRole(message.role)}
-${trimTo(message.text, 1200)}`;
+${trimTo(message.text, 500)}`;
   }
 
   function normalizeRole(role) {
@@ -268,87 +250,90 @@ ${trimTo(message.text, 1200)}`;
   function openNewChat() {
     window.open("https://chatgpt.com/", "_blank", "noopener,noreferrer");
   }
+
   function generateProjectSummary(messages) {
-  const recent = messages.slice(-20);
+    const recent = messages.slice(-20);
 
-  const userMsgs = recent.filter(m => m.role === "user");
-  const assistantMsgs = recent.filter(m => m.role === "assistant");
+    const userMsgs = recent.filter((m) => m.role === "user");
+    const assistantMsgs = recent.filter((m) => m.role === "assistant");
 
-  const goal = userMsgs.slice(-3).map(m => m.text).join(" ");
-  const assistantHints = assistantMsgs.slice(-2).map(m => m.text).join(" ");
+    const goal = userMsgs.slice(-3).map((m) => m.text).join(" ");
+    const assistantHints = assistantMsgs
+      .slice(-2)
+      .map((m) => trimTo(m.text, 400))
+      .join("\n\n");
 
-  return trimTo(
-  `## What matters (read this first)
+    return trimTo(
+      `## What matters (read this first)
 
-  We are working on:
-  ${extractHighLevelGoal(goal)}
+We are working on:
+${extractHighLevelGoal(goal)}
 
-  Current stage:
-  ${extractStage(recent)}
+Current stage:
+${extractStage(recent)}
 
-  Recent direction:
-  ${assistantHints}
+Recent direction:
+${assistantHints}
 
-  Next step:
-  ${inferNextStep(recent)}
+Next step:
+${inferNextStep(recent)}
 
-  Constraints:
-  - Keep solution simple
-  - Avoid overengineering
-  - Focus on current working flow
+Constraints:
+- Keep solution simple
+- Avoid overengineering
+- Focus on current working flow
 
-  Important:
-  - Prioritize latest user intent
-  - Continue, do not restart
-
-  `,
-    1200
-  );
-}
-
-function extractHighLevelGoal(text) {
-  return text
-    .split(".")
-    .slice(0, 2)
-    .join(".")
-    .trim();
-}
-
-function extractStage(messages) {
-  const joined = messages.map(m => m.text.toLowerCase()).join(" ");
-
-  if (joined.includes("prototype") || joined.includes("first test")) {
-    return "early prototype / testing";
+Important:
+- Prioritize latest user intent
+- Continue, do not restart
+`,
+      1200
+    );
   }
 
-  if (joined.includes("mvp")) {
-    return "MVP development";
+  function extractHighLevelGoal(text) {
+    return text
+      .split(".")
+      .slice(0, 2)
+      .join(".")
+      .trim();
   }
 
-  if (joined.includes("debug") || joined.includes("fix")) {
-    return "debugging phase";
+  function extractStage(messages) {
+    const joined = messages.map((m) => m.text.toLowerCase()).join(" ");
+
+    if (joined.includes("prototype") || joined.includes("first test")) {
+      return "early prototype / testing";
+    }
+
+    if (joined.includes("mvp")) {
+      return "MVP development";
+    }
+
+    if (joined.includes("debug") || joined.includes("fix")) {
+      return "debugging phase";
+    }
+
+    return "active development";
   }
 
-  return "active development";
-}
+  function inferNextStep(messages) {
+    const recentText = messages.map((m) => m.text.toLowerCase()).join(" ");
 
-function inferNextStep(messages) {
-  const recentText = messages.map(m => m.text.toLowerCase()).join(" ");
+    if (recentText.includes("test") || recentText.includes("working")) {
+      return "Validate behavior and improve output quality";
+    }
 
-  if (recentText.includes("test") || recentText.includes("working")) {
-    return "Validate behavior and improve output quality";
+    if (recentText.includes("build") || recentText.includes("implement")) {
+      return "Continue implementation from current state";
+    }
+
+    if (recentText.includes("improve") || recentText.includes("optimize")) {
+      return "Refine current approach for better results";
+    }
+
+    return "Continue based on latest user instruction";
   }
-
-  if (recentText.includes("build") || recentText.includes("implement")) {
-    return "Continue implementation from current state";
-  }
-
-  if (recentText.includes("improve") || recentText.includes("optimize")) {
-    return "Refine current approach for better results";
-  }
-
-  return "Continue based on latest user instruction";
-}
 
   injectButton();
 
