@@ -96,15 +96,21 @@
   }
 
   function buildRestartPrompt(messages) {
-    const summary = generateProjectSummary(messages);
-    const recentUserInstructions = getRecentUserInstructions(messages);
-    const currentProblem = getCurrentProblem(messages);
+  const summary = generateProjectSummary(messages);
+  const coreDecisions = getCoreDecisions(messages);
+  const recentUserInstructions = getRecentUserInstructions(messages);
+  const currentProblem = getCurrentProblem(messages);
 
-    return `You are continuing a previous ChatGPT conversation after a reset.
+  return `You are continuing a previous ChatGPT conversation after a reset.
 
 ## Project Summary
 
 ${summary}
+
+## Core decisions / product model
+
+${coreDecisions}
+
 Do not restart from scratch. Continue from the context below.
 
 ## Current problem / active task
@@ -135,6 +141,37 @@ Rules:
 - If the next task is ambiguous, recap and ask what the user wants help with.
 - Be practical and concise.`;
   }
+
+  function getCoreDecisions(messages) {
+  const decisions = messages
+    .filter((message) => {
+      const lower = message.text.toLowerCase();
+
+      return [
+        "decision",
+        "decided",
+        "model",
+        "structure",
+        "architecture",
+        "seller",
+        "storefront",
+        "trust",
+        "review",
+        "verified transaction",
+        "v1",
+        "scope",
+        "constraint",
+        "implementation state",
+        "next practical step"
+      ].some((term) => lower.includes(term));
+    })
+    .filter((message) => !isLowSignal(message.text))
+    .slice(-8)
+    .map(formatMessage)
+    .join("\n\n");
+
+  return decisions || "No clear core decisions found.";
+}
 
   function getRecentUserInstructions(messages) {
     return messages
