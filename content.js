@@ -110,17 +110,22 @@ ${importantParts}
 
 ## Continue from here
 
-Before answering, briefly infer:
+Start by giving a brief recap of:
 1. What we are building
-2. Where we are in the implementation
-3. What the next concrete step is
+2. Current implementation state
+3. Most recent unresolved issue, if any
 
-Then continue directly.
+Then ask the user what they want help with next.
+
+Do not assume the latest technical issue is still active unless the user says so.
+Do not continue debugging old problems automatically.
 
 Rules:
 - Preserve the user's current goal.
-- Follow the latest user instructions over older ones.
-- Avoid re-explaining solved parts.
+- Prioritize the latest user intent.
+- Do not restart from scratch.
+- Do not continue solving old issues unless clearly still active.
+- If the next task is ambiguous, recap and ask what the user wants help with.
 - Be practical and concise.`;
   }
 
