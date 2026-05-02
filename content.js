@@ -327,6 +327,24 @@ function extractStage(messages) {
   return "active development";
 }
 
+function inferNextStep(messages) {
+  const recentText = messages.map(m => m.text.toLowerCase()).join(" ");
+
+  if (recentText.includes("test") || recentText.includes("working")) {
+    return "Validate behavior and improve output quality";
+  }
+
+  if (recentText.includes("build") || recentText.includes("implement")) {
+    return "Continue implementation from current state";
+  }
+
+  if (recentText.includes("improve") || recentText.includes("optimize")) {
+    return "Refine current approach for better results";
+  }
+
+  return "Continue based on latest user instruction";
+}
+
   injectButton();
 
   const observer = new MutationObserver(() => {
