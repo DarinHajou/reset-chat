@@ -333,10 +333,6 @@ function extractKeySentence(text) {
   function inferPrimaryProject(messages) {
   const text = messages.map(m => m.text.toLowerCase()).join(" ");
 
-  // Detect real product vs tool chatter
-  if (text.includes("map of pi")) {
-    return "Map of Pi — a hybrid marketplace / local commerce platform with seller profiles and optional storefronts.";
-  }
 
   if (text.includes("chrome extension") || text.includes("reset chat")) {
     return "A Chrome extension that reconstructs ChatGPT context across sessions.";
