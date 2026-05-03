@@ -18,6 +18,10 @@
         "https://chat.openai.com/*"
       ],
       "js": [
+        "src/shared/config.js",
+        "src/shared/hash.js",
+        "src/content/chatgpt-dom-adapter.js",
+        "src/content/capture-controller.js",
         "src/content/index.js"
       ],
       "run_at": "document_idle"
