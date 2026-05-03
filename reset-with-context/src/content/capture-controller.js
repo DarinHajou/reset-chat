@@ -175,15 +175,13 @@
   }
 
   function createMessageId(parts) {
-    return [
-      "msg",
-      parts.conversationId,
-      String(parts.index).padStart(4, "0"),
-      parts.role || "unknown",
-      parts.textHash.slice(0, 10),
-      parts.codeHash.slice(0, 10)
-    ].join("_");
-  }
+  return [
+    "msg",
+    parts.conversationId,
+    String(parts.index).padStart(4, "0"),
+    parts.role || "unknown"
+  ].join("_");
+}
 
   function getConversationMeta() {
     return {
