@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Reset with Context",
+  "version": "0.2.0",
+  "description": "Local-first context reset helper for ChatGPT.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*"
+  ],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*"
+      ],
+      "js": [
+        "src/content/index.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
