@@ -62,7 +62,11 @@ async function handleCapturedMessages(payload, sender) {
   const total = await DB.countMessagesForConversation(conversation.id);
 
   log("Stored captured messages.", {
+    tabId: conversation.tabId,
+    windowId: conversation.windowId,
     conversationId: conversation.id,
+    title: conversation.title,
+    url: conversation.url,
     received: payload.messages?.length || 0,
     stored: result.stored,
     total
