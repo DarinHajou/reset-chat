@@ -37,138 +37,146 @@
   };
 
   const SIGNAL_KINDS = [
-    "instruction",
-    "proposal",
-    "agreement_check",
-    "confirmation",
-    "negation",
-    "rejection",
-    "correction",
-    "uncertainty",
-    "scope_limiter",
-    "completion/checkpoint",
-    "clarification_request",
-    "frustration_escalation",
-    "quality_bar",
-    "role_contract",
-    "artifact_reference",
-    "artifact_state_hint",
-    "topic_shift"
-  ];
+  "instruction",
+  "proposal",
+  "agreement_check",
+  "confirmation",
+  "negation",
+  "rejection",
+  "correction",
+  "uncertainty",
+  "scope_limiter",
+  "completion/checkpoint",
+  "clarification_request",
+  "frustration_escalation",
+  "quality_bar",
+  "role_contract",
+  "artifact_reference",
+  "artifact_state_hint",
+  "topic_shift"
+];
 
   const RULES = [
-    {
-      kind: "instruction",
-      id: "direct_request",
-      re: /\b(?:please|can you|could you|would you|help me|i need you to|i want you to)\b[\s\S]{0,120}/gi
-    },
-    {
-      kind: "instruction",
-      id: "imperative_action",
-      re: /\b(?:build|create|make|write|rewrite|refactor|fix|update|change|add|remove|delete|move|rename|keep|use|avoid|stop|start|show|give|explain|summarize|audit|inspect|compare)\b[\s\S]{0,120}/gi
-    },
-    {
-      kind: "instruction",
-      id: "strong_constraint",
-      re: /\b(?:must|must not|do not|don't|never|always|important rule|critical|make sure|under no circumstance)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "instruction",
+    id: "direct_request",
+    re: /\b(please|can you|could you|would you|help me|i need you to|i want you to)\b[\s\S]{0,120}/gi
+  },
+  {
+    kind: "instruction",
+    id: "imperative_action",
+    re: /\b(build|create|make|write|rewrite|refactor|fix|update|change|add|remove|delete|move|rename|keep|use|avoid|stop|start|show|give|explain|summarize|audit|inspect|compare)\b[\s\S]{0,120}/gi
+  },
+  {
+    kind: "instruction",
+    id: "strong_constraint",
+    re: /\b(must not|do not|don't|never|always|important rule|critical|make sure|under no circumstance|must)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "proposal",
-      id: "soft_proposal",
-      re: /\b(?:maybe we could|maybe you could|we could|you could|what if|how about|one option is|another option is|i suggest|i'd suggest|we should|let's|i would|could be better to)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "proposal",
+    id: "soft_proposal",
+    re: /\b(maybe we could|maybe you could|we could|you could|what if|how about|one option is|another option is|i suggest|i'd suggest|we should|let's|i would|could be better to)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "agreement_check",
-      id: "agreement_question",
-      re: /\b(?:right\?|correct\?|sound good\?|makes sense\?|does that make sense\?|is that okay\?|ok\?|okay\?|agree\?|fair\?)\b/gi
-    },
+  {
+    kind: "agreement_check",
+    id: "agreement_question",
+    re: /(?:^|\s)(right\?|correct\?|sound good\?|makes sense\?|does that make sense\?|is that okay\?|ok\?|okay\?|agree\?|fair\?)(?:\s|$)/gi
+  },
 
-    {
-      kind: "confirmation",
-      id: "positive_confirmation",
-      re: /\b(?:yes|yep|yeah|exactly|correct|that's right|that works|works for me|great|nice|good|perfect|ok great|sounds good)\b/gi
-    },
+  {
+    kind: "confirmation",
+    id: "positive_confirmation",
+    re: /\b(yes|yep|yeah|exactly|correct|that's right|that works|works for me|great|nice|good|perfect|ok great|sounds good)\b[\s\S]{0,80}/gi,
+    weakTriggerGate: true
+  },
 
-    {
-      kind: "negation",
-      id: "plain_negation",
-      re: /\b(?:no|not|never|isn't|wasn't|aren't|weren't|doesn't|don't|didn't|can't|cannot|won't|shouldn't|wouldn't|couldn't)\b[\s\S]{0,90}/gi
-    },
+  {
+    kind: "negation",
+    id: "actionable_negation",
+    re: /\b(no don't|do not|don't|never|can't|cannot|won't|shouldn't|wouldn't|couldn't|not this|not that|not what i meant|not what i asked|not what we did|not useful|not needed|not included|not loaded|doesn't work|does not work)\b[\s\S]{0,120}/gi
+  },
 
-    {
-      kind: "rejection",
-      id: "explicit_rejection",
-      re: /\b(?:no don't|do not do that|don't do that|not that|not this|i don't want|we don't want|skip that|remove that|wrong direction|not the right approach|we shouldn't|that is not useful|that's not useful)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "rejection",
+    id: "explicit_rejection",
+    re: /\b(no don't|do not do that|don't do that|not that|not this|i don't want|we don't want|skip that|remove that|wrong direction|not the right approach|we shouldn't|that is not useful|that's not useful|throw that away|ignore that)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "correction",
-      id: "correction_marker",
-      re: /\b(?:actually|i meant|what i meant|that's not what|that is not what|not what i asked|not what we did|you misunderstood|wrong|incorrect|the issue is|the problem is|instead|rather than)\b[\s\S]{0,160}/gi
-    },
+  {
+    kind: "correction",
+    id: "correction_marker",
+    re: /\b(actually|i meant|what i meant|that's not what|that is not what|not what i asked|not what we did|you misunderstood|wrong|incorrect|the issue is|the problem is|instead|rather than|sorry, i mean|i mean)\b[\s\S]{0,160}/gi
+  },
 
-    {
-      kind: "uncertainty",
-      id: "uncertainty_marker",
-      re: /\b(?:maybe|probably|possibly|not sure|i'm not sure|i think|i guess|seems like|might|could be|unsure|unclear|i wonder|perhaps)\b[\s\S]{0,120}/gi
-    },
+  {
+    kind: "uncertainty",
+    id: "uncertainty_marker",
+    re: /\b(maybe|probably|possibly|not sure|i'm not sure|i think|i guess|seems like|might|could be|unsure|unclear|i wonder|perhaps|idk)\b[\s\S]{0,120}/gi
+  },
 
-    {
-      kind: "scope_limiter",
-      id: "scope_limit",
-      re: /\b(?:only|just|for now|for this|dev-only|local only|not product logic|not production|mvp|keep it simple|small|minimal|simple|no need to|don't overbuild|vanilla js only|no ui|no backend|no npm|no react)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "scope_limiter",
+    id: "scope_limit",
+    re: /\b(for now|for this|dev-only|local only|not product logic|not production|mvp|keep it simple|small|minimal|simple|no need to|don't overbuild|vanilla js only|no ui|no backend|no npm|no react|only|just)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "completion/checkpoint",
-      id: "checkpoint",
-      re: /\b(?:done|complete|completed|finished|ready|shipped|checkpoint|milestone|next step|moving on|that part is done|we have|we now have|current status|works|working)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "completion/checkpoint",
+    id: "checkpoint",
+    re: /\b(checkpoint|milestone|next step|moving on|that part is done|we are done with|we're done with|current status|where we landed|final decision|ready to move on|ready for next|save this|capture this)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "clarification_request",
-      id: "clarification_question",
-      re: /\b(?:can you clarify|what do you mean|which one|which file|what file|where exactly|do you mean|are you asking|should i|do you want|can you explain|would that help|do you need)\b[\s\S]{0,160}/gi
-    },
+  {
+    kind: "clarification_request",
+    id: "clarification_question",
+    re: /\b(can you clarify|what do you mean|which one|which file|what file|where exactly|do you mean|are you asking|should i|do you want|can you explain|would that help|do you need)\b[\s\S]{0,160}/gi
+  },
 
-    {
-      kind: "frustration_escalation",
-      id: "frustration_marker",
-      re: /\b(?:still|again|you keep|this keeps|why are you|this is wrong|that's wrong|not working|broken|annoying|frustrating|seriously|come on|same issue|same problem)\b[\s\S]{0,160}/gi
-    },
+  {
+    kind: "frustration_escalation",
+    id: "frustration_marker",
+    re: /\b(again|you keep|this keeps|why are you|this is wrong|that's wrong|not working|broken|annoying|frustrating|seriously|come on|same issue|same problem|wtf|what the fuck)\b[\s\S]{0,160}/gi
+  },
 
-    {
-      kind: "quality_bar",
-      id: "quality_expectation",
-      re: /\b(?:production-ready|production ready|polished|clean|senior|scalable|robust|reliable|not sloppy|high quality|best practice|real-world|practical|performant|maintainable|simple and local|easy to delete)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "quality_bar",
+    id: "quality_expectation",
+    re: /\b(production-ready|production ready|polished|cleaner|clean and simple|make it clean|senior|scalable|robust|reliable|not sloppy|high quality|best practice|real-world|practical|performant|maintainable|simple and local|easy to delete|clear|not vague|too vague|follow instructions)\b[\s\S]{0,140}/gi,
+    skipCodeLike: true
+  },
 
-    {
-      kind: "role_contract",
-      id: "role_contract",
-      re: /\b(?:act like|you are|as a|be direct|be concise|senior product engineer|product strategist|full-stack|frontend|backend|designer|reviewer|do not ask me|don't ask me)\b[\s\S]{0,160}/gi
-    },
+  {
+    kind: "role_contract",
+    id: "role_contract",
+    re: /\b(act like|respond as|you are acting as|your role is|be direct|be concise|senior product engineer|product strategist|senior product designer|ux strategist|full-stack|frontend|backend|designer|reviewer|do not ask me|don't ask me)\b[\s\S]{0,160}/gi
+  },
 
-    {
-      kind: "artifact_reference",
-      id: "artifact_reference",
-      re: /\b(?:file|component|hook|store|script|function|class|module|extension|indexeddb|database|db|table|conversation|message|manifest|service worker|content script|controller|adapter|readme|\.js|\.ts|\.tsx|\.jsx|\.css|\.json|\.md)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "artifact_reference",
+    id: "artifact_reference",
+    re: /\b(file|component|hook|store|script|function|class|module|extension|indexeddb|database|db|table|manifest|service worker|content script|controller|adapter|readme|\.js|\.ts|\.tsx|\.jsx|\.css|\.json|\.md)\b[\s\S]{0,140}/gi,
+    skipCodeLike: false
+  },
+  {
+    kind: "artifact_reference",
+    id: "message_reference",
+    re: /\b(message above|last message|previous message|this handoff|the handoff|this prompt|the prompt|this conversation|current conversation|this screenshot|the screenshot|this file|the file|this code|the code|this screen|the screen)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "artifact_state_hint",
-      id: "artifact_state",
-      re: /\b(?:already|existing|currently|stored|captured|saved|local|draft|previous|current|old|new|updated|changed|fixed|missing|broken|loaded|available|not loaded)\b[\s\S]{0,140}/gi
-    },
+  {
+    kind: "artifact_state_hint",
+    id: "artifact_state",
+    re: /\b(already|existing|currently|stored|captured|saved|local|draft|previous|current|old|new|updated|changed|fixed|missing|broken|loaded|available|not loaded)\b[\s\S]{0,140}/gi
+  },
 
-    {
-      kind: "topic_shift",
-      id: "topic_shift",
-      re: /\b(?:btw|by the way|new topic|separate question|another thing|different topic|switching gears|unrelated|also|anyway|moving on)\b[\s\S]{0,140}/gi
-    }
-  ];
+  {
+    kind: "topic_shift",
+    id: "topic_shift",
+    re: /\b(btw|by the way|new topic|separate question|another thing|different topic|switching gears|unrelated|anyway|moving on|next screen|next part|let's switch to)\b[\s\S]{0,140}/gi
+  }
+];
 
   function getDefaultOptions(userOptions) {
     return {
