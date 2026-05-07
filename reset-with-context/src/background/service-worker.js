@@ -4,6 +4,10 @@
 
 try {
   importScripts("../shared/config.js", "../storage/db.js");
+
+  if (globalThis.RWC_CONFIG?.debug) {
+    importScripts("../dev/signal-audit.dev.js");
+  }
 } catch (error) {
   console.error("[RWC] Failed to import background dependencies.", error);
 }
