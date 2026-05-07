@@ -54,6 +54,26 @@
   "artifact_reference",
   "artifact_state_hint",
   "topic_shift"
+];const SIGNAL_KINDS = [
+  "instruction",
+  "proposal",
+  "agreement_check",
+  "confirmation",
+  "negation",
+  "rejection",
+  "correction",
+  "uncertainty",
+  "scope_limiter",
+  "completion/checkpoint",
+  "clarification_request",
+  "frustration_escalation",
+  "output_failure",
+  "alignment_question",
+  "quality_bar",
+  "role_contract",
+  "artifact_reference",
+  "artifact_state_hint",
+  "topic_shift"
 ];
 
   const RULES = [
@@ -150,7 +170,7 @@
   {
     kind: "role_contract",
     id: "role_contract",
-    re: /\b(act like|respond as|you are acting as|your role is|be direct|be concise|senior product engineer|product strategist|senior product designer|ux strategist|full-stack|frontend|backend|designer|reviewer|do not ask me|don't ask me)\b[\s\S]{0,160}/gi
+    re: /\b(act like|respond as|you are acting as|your role is|be direct|be concise|senior product engineer|product strategist|senior product designer|ux strategist|do not ask me|don't ask me)\b[\s\S]{0,160}/gi
   },
 
   {
@@ -175,6 +195,17 @@
     kind: "topic_shift",
     id: "topic_shift",
     re: /\b(btw|by the way|new topic|separate question|another thing|different topic|switching gears|unrelated|anyway|moving on|next screen|next part|let's switch to)\b[\s\S]{0,140}/gi
+  },
+    {
+    kind: "output_failure",
+    id: "assistant_output_failure",
+    re: /\b(too much|too vague|vague language|what is this|what the fuck is this|is this supposed to help|no one can understand this|these aren't real instructions|these are not real instructions|not real instructions|sounds robotic|sounds fucking robotic|follow instructions|clear instructions|you ignored|ignoring the last message|wrong output|bad output|miles away|all over the place|cryptic)\b[\s\S]{0,160}/gi
+  },
+
+  {
+    kind: "alignment_question",
+    id: "alignment_question",
+    re: /\b(do we like this|do we want this|do we even want|should we use|should we keep|should we have|is this right|is this correct|is this the right|so roughly like this|so more or less like this|link first or accordion|where do we decide|where should this go|what goes here|which direction|which approach|how many image versions|isn't this too tight|isnt this too tight)\b[\s\S]{0,160}/gi
   }
 ];
 
@@ -260,58 +291,125 @@
     return result;
   }
 
+  function passesWeakTriggerGate(phrase, normalizedSource) {
+  const weakPhrases = new Set(["yes", "yep", "yeah", "good", "nice", "great", "perfect", "correct"]);
+
+  if (!weakPhrases.has(phrase)) {
+    return true;
+  }
+
+  if (normalizedSource.length <= 80) {
+    return true;
+  }
+
+  const strongConfirmationStart = new RegExp(
+    `^${escapeRegExp(phrase)}\\b(?:[,!.\\s]+(?:that works|works|exactly|correct|continue|go on|do that|this is right|sounds good))?`
+  );
+
+  return strongConfirmationStart.test(normalizedSource);
+}
+
+function looksLikeCodeOrConfig(text) {
+  const value = String(text || "");
+
+  if (!value.trim()) {
+    return false;
+  }
+
+  const lower = value.toLowerCase();
+
+  const codeKeywords = /\b(function|const|let|var|return|class|import|export|=>|console\.log|queryselector|addeventlistener|regexp|indexeddb|objectstore|manifest_version)\b/i;
+
+  if (codeKeywords.test(value)) {
+    return true;
+  }
+
+  const symbolCount = (value.match(/[{}[\]();=<>]/g) || []).length;
+  const symbolRatio = symbolCount / Math.max(value.length, 1);
+
+  if (symbolRatio > 0.035 && value.length > 120) {
+    return true;
+  }
+
+  if (
+    lower.includes("```") ||
+    lower.includes("const ") ||
+    lower.includes("function ") ||
+    lower.includes("return ") ||
+    lower.includes("=>")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
   function extractDraftSignalsFromText(text) {
-    const source = String(text || "");
-    const results = [];
-    const seen = new Set();
+  const source = String(text || "");
+  const normalizedSource = normalizePhrase(source);
+  const results = [];
+  const seen = new Set();
 
-    for (const rule of RULES) {
-      const flags = rule.re.flags.includes("g") ? rule.re.flags : `${rule.re.flags}g`;
-      const re = new RegExp(rule.re.source, flags);
-
-      let match;
-
-      while ((match = re.exec(source))) {
-        const raw = cleanSpan(match[0]);
-
-        if (!raw) {
-          continue;
-        }
-
-        const phrase = normalizePhrase(raw);
-
-        if (!phrase) {
-          continue;
-        }
-
-        const start = match.index;
-        const end = match.index + match[0].length;
-        const key = `${rule.kind}:${rule.id}:${phrase}:${start}`;
-
-        if (seen.has(key)) {
-          continue;
-        }
-
-        seen.add(key);
-
-        results.push({
-          kind: rule.kind,
-          ruleId: rule.id,
-          phrase,
-          raw,
-          start,
-          end,
-          context: getContext(source, start, end)
-        });
-
-        if (re.lastIndex === match.index) {
-          re.lastIndex += 1;
-        }
-      }
+  for (const rule of RULES) {
+    if (rule.skipCodeLike && looksLikeCodeOrConfig(source)) {
+      continue;
     }
 
-    return results;
+    const flags = rule.re.flags.includes("g") ? rule.re.flags : `${rule.re.flags}g`;
+    const re = new RegExp(rule.re.source, flags);
+
+    let match;
+
+    while ((match = re.exec(source))) {
+      const trigger = cleanSpan(match[1] || match[0]);
+      const raw = cleanSpan(match[0]);
+
+      if (!trigger || !raw) {
+        continue;
+      }
+
+      const phrase = normalizePhrase(trigger);
+
+      if (!phrase) {
+        continue;
+      }
+
+      if (rule.weakTriggerGate && !passesWeakTriggerGate(phrase, normalizedSource)) {
+        continue;
+      }
+
+      const start = match.index;
+      const end = match.index + match[0].length;
+      const key = `${rule.kind}:${rule.id}:${phrase}:${start}`;
+
+      if (seen.has(key)) {
+        continue;
+      }
+
+      seen.add(key);
+
+      results.push({
+        kind: rule.kind,
+        ruleId: rule.id,
+        phrase,
+        raw,
+        start,
+        end,
+        context: getContext(source, start, end)
+      });
+
+      if (re.lastIndex === match.index) {
+        re.lastIndex += 1;
+      }
+    }
   }
+
+  return results;
+}
 
   function createAccumulator() {
     return {
