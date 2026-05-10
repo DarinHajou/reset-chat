@@ -602,6 +602,53 @@ function escapeRegExp(value) {
     console.groupEnd();
   }
 
+  function printAllConversationAudit(summary) {
+  console.group("[RWC_DEV] All conversation signal audit");
+
+  console.group("Conversation comparison");
+  console.table(
+    summary.conversations.map((row) => ({
+      title: row.title,
+      conversationId: row.conversationId,
+      messageCount: row.messageCount,
+      scannedMessages: row.scannedMessages,
+      messagesWithSignals: row.messagesWithSignals,
+      totalSignals: row.totalSignals,
+      topSignals: row.topSignals
+        .map((signal) => `${signal.kind}:${signal.count}`)
+        .join(", "),
+      weakCategories: row.weakCategories
+        .map((category) => category.kind)
+        .join(", "),
+      noisyMatches: row.noisyMatches
+        .slice(0, 5)
+        .map((match) => `${match.kind}:${match.phrase}:${match.count}`)
+        .join(", "),
+      missedExamples: row.missedExamples.length,
+      updatedAt: row.updatedAt
+    }))
+  );
+  console.groupEnd();
+
+  console.group("Global signal counts");
+  console.table(
+    Object.entries(summary.globalSummary.signalCounts)
+      .map(([kind, count]) => ({ kind, count }))
+      .sort((a, b) => b.count - a.count)
+  );
+  console.groupEnd();
+
+  console.group("Common noisy phrases");
+  console.table(summary.globalSummary.commonNoisyPhrases);
+  console.groupEnd();
+
+  console.group("Common missing categories");
+  console.table(summary.globalSummary.commonMissingCategories);
+  console.groupEnd();
+
+  console.groupEnd();
+}
+
   async function getDb() {
     if (globalThis.RWC_DB && typeof globalThis.RWC_DB.openDb === "function") {
       return globalThis.RWC_DB.openDb();
@@ -783,6 +830,147 @@ function escapeRegExp(value) {
       preview: limitText(text, 260)
     };
   }
+  async function auditAllConversations(userOptions = {}) {
+  const db = await getDb();
+
+  const conversations = await readAll(db, STORES.conversations).catch(() => []);
+  const messages = await readAll(db, STORES.messages).catch(() => []);
+
+  const options = {
+    roles: ["user"],
+    maxMessagesPerConversation: 300,
+    topPhrasesPerCategory: 10,
+    maxExamplesPerPhrase: 3,
+    maxNoSignalExamples: 10,
+    maxNoisyMatches: 10,
+    minMessages: 1,
+    log: true,
+    ...userOptions
+  };
+
+  const messageCounts = new Map();
+
+  for (const message of messages) {
+    const count = messageCounts.get(message.conversationId) || 0;
+    messageCounts.set(message.conversationId, count + 1);
+  }
+
+  const globalSignalCounts = Object.fromEntries(
+    SIGNAL_KINDS.map((kind) => [kind, 0])
+  );
+
+  const noisyPhraseCounts = new Map();
+  const weakCategoryCounts = new Map();
+
+  const conversationRows = [];
+
+  for (const conversation of conversations) {
+    const messageCount = messageCounts.get(conversation.id) || 0;
+
+    if (messageCount < options.minMessages) {
+      continue;
+    }
+
+    const result = await auditSignals({
+      ...options,
+      conversationId: conversation.id,
+      maxMessages: options.maxMessagesPerConversation,
+      log: false
+    });
+
+    const signalCounts = result.diagnostics?.signalCounts || {};
+    const weakCategories = result.diagnostics?.weakCategories || [];
+    const noisyMatches = result.noisyMatches || [];
+
+    for (const kind of SIGNAL_KINDS) {
+      globalSignalCounts[kind] += signalCounts[kind] || 0;
+    }
+
+    for (const row of noisyMatches) {
+      const key = `${row.kind}:${row.phrase}`;
+      const existing = noisyPhraseCounts.get(key) || {
+        kind: row.kind,
+        phrase: row.phrase,
+        count: 0,
+        conversations: 0
+      };
+
+      existing.count += row.count || 0;
+      existing.conversations += 1;
+
+      noisyPhraseCounts.set(key, existing);
+    }
+
+    for (const row of weakCategories) {
+      const existing = weakCategoryCounts.get(row.kind) || {
+        kind: row.kind,
+        conversations: 0
+      };
+
+      existing.conversations += 1;
+      weakCategoryCounts.set(row.kind, existing);
+    }
+
+    const topSignals = Object.entries(signalCounts)
+      .filter(([, count]) => count > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([kind, count]) => ({ kind, count }));
+
+    conversationRows.push({
+      title: conversation.title || conversation.name || "(untitled)",
+      conversationId: conversation.id,
+      messageCount,
+      scannedMessages: result.diagnostics?.scannedMessages || 0,
+      messagesWithSignals: result.diagnostics?.messagesWithSignals || 0,
+      totalSignals: result.diagnostics?.totalSignals || 0,
+      signalCounts,
+      weakCategories,
+      noisyMatches,
+      topSignals,
+      missedExamples: result.messagesWithNoDetectedSignal || [],
+      updatedAt: conversation.updatedAt,
+      url: conversation.url
+    });
+  }
+
+  conversationRows.sort((a, b) =>
+    String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
+  );
+
+  const commonNoisyPhrases = Array.from(noisyPhraseCounts.values())
+    .sort(
+      (a, b) =>
+        b.conversations - a.conversations ||
+        b.count - a.count ||
+        a.phrase.localeCompare(b.phrase)
+    )
+    .slice(0, 25);
+
+  const commonMissingCategories = Array.from(weakCategoryCounts.values())
+    .sort(
+      (a, b) =>
+        b.conversations - a.conversations ||
+        a.kind.localeCompare(b.kind)
+    );
+
+  const globalSummary = {
+    signalCounts: globalSignalCounts,
+    commonNoisyPhrases,
+    commonMissingCategories
+  };
+
+  const summary = {
+    conversations: conversationRows,
+    globalSummary
+  };
+
+  if (options.log) {
+    printAllConversationAudit(summary);
+  }
+
+  return summary;
+}
 
   async function listConversations() {
   const db = await getDb();
@@ -819,6 +1007,7 @@ function escapeRegExp(value) {
   globalThis.RWC_DEV.listConversations = listConversations;
   globalThis.RWC_DEV.extractDraftSignalsFromText = extractDraftSignalsFromText;
   globalThis.RWC_DEV.signalAuditRules = RULES;
+  globalThis.RWC_DEV.auditAllConversations = auditAllConversations;
 
   console.info("[RWC_DEV] Signal audit loaded. Run: await RWC_DEV.auditSignals()");
 })();
