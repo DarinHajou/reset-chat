@@ -605,27 +605,32 @@ function escapeRegExp(value) {
   function printAllConversationAudit(summary) {
   console.group("[RWC_DEV] All conversation signal audit");
 
-  console.group("Conversation comparison");
+    console.group("Signal counts by conversation");
   console.table(
     summary.conversations.map((row) => ({
       title: row.title,
-      conversationId: row.conversationId,
-      messageCount: row.messageCount,
-      scannedMessages: row.scannedMessages,
-      messagesWithSignals: row.messagesWithSignals,
-      totalSignals: row.totalSignals,
-      topSignals: row.topSignals
-        .map((signal) => `${signal.kind}:${signal.count}`)
-        .join(", "),
-      weakCategories: row.weakCategories
-        .map((category) => category.kind)
-        .join(", "),
-      noisyMatches: row.noisyMatches
-        .slice(0, 5)
-        .map((match) => `${match.kind}:${match.phrase}:${match.count}`)
-        .join(", "),
-      missedExamples: row.missedExamples.length,
-      updatedAt: row.updatedAt
+      messages: row.scannedMessages,
+      instruction: row.signalCounts.instruction || 0,
+      proposal: row.signalCounts.proposal || 0,
+      agreement: row.signalCounts.agreement_check || 0,
+      confirmation: row.signalCounts.confirmation || 0,
+      negation: row.signalCounts.negation || 0,
+      rejection: row.signalCounts.rejection || 0,
+      correction: row.signalCounts.correction || 0,
+      uncertainty: row.signalCounts.uncertainty || 0,
+      scope: row.signalCounts.scope_limiter || 0,
+      completion: row.signalCounts["completion/checkpoint"] || 0,
+      clarification: row.signalCounts.clarification_request || 0,
+      frustration: row.signalCounts.frustration_escalation || 0,
+      outputFailure: row.signalCounts.output_failure || 0,
+      alignment: row.signalCounts.alignment_question || 0,
+      trust: row.signalCounts.trust_boundary || 0,
+      targetCorrection: row.signalCounts.target_correction || 0,
+      quality: row.signalCounts.quality_bar || 0,
+      role: row.signalCounts.role_contract || 0,
+      artifact: row.signalCounts.artifact_reference || 0,
+      stateHint: row.signalCounts.artifact_state_hint || 0,
+      topicShift: row.signalCounts.topic_shift || 0
     }))
   );
   console.groupEnd();
