@@ -55,7 +55,8 @@
   "role_contract",
   "artifact_reference",
   "artifact_state_hint",
-  "topic_shift"
+  "topic_shift",
+  "target_correction"
 ];
 
   const RULES = [
@@ -189,7 +190,12 @@
     kind: "alignment_question",
     id: "alignment_question",
     re: /\b(do we like this|do we want this|do we even want|should we use|should we keep|should we have|is this right|is this correct|is this the right|so roughly like this|so more or less like this|link first or accordion|where do we decide|where should this go|what goes here|which direction|which approach|how many image versions|isn't this too tight|isnt this too tight)\b[\s\S]{0,160}/gi
-  }
+  },
+  {
+  kind: "target_correction",
+  id: "target_correction",
+  re: /\b(i said|screen 2, not|not 15 screens|there's no such thing|there is no such thing|forget about|what we are working on now is|we need this here|wrong screen|wrong page|wrong component|wrong target|not the nav bar|not the app nav bar)\b[\s\S]{0,160}/gi
+},
 ];
 
   function getDefaultOptions(userOptions) {
