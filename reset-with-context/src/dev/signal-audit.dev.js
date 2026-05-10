@@ -51,6 +51,7 @@
   "frustration_escalation",
   "output_failure",
   "alignment_question",
+  "trust_boundary",
   "quality_bar",
   "role_contract",
   "artifact_reference",
@@ -134,6 +135,12 @@
 
   {
     kind: "clarification_request",
+    id: "short_confusion",
+    re: /(?:^|\s)(what\?|what no|huh\?|wait what|is that normal\?|is that normal)(?:\s|$)/gi,
+    shortMessageOnly: true
+  },
+  {
+    kind: "clarification_request",
     id: "clarification_question",
     re: /\b(can you clarify|what do you mean|which one|which file|what file|where exactly|do you mean|are you asking|should i|do you want|can you explain|would that help|do you need)\b[\s\S]{0,160}/gi
   },
@@ -147,7 +154,7 @@
   {
     kind: "quality_bar",
     id: "quality_expectation",
-    re: /\b(production-ready|production ready|polished|cleaner|clean and simple|make it clean|senior|scalable|robust|reliable|not sloppy|high quality|best practice|real-world|practical|performant|maintainable|simple and local|easy to delete|clear|not vague|too vague|follow instructions)\b[\s\S]{0,140}/gi,
+    re: /\b(production-ready|production ready|polished|cleaner|clean and simple|make it clean|senior|scalable|robust|reliable|not sloppy|high quality|best practice|real-world|practical|performant|maintainable|simple and local|easy to delete|clear|not vague|too vague|follow instructions|very best|best do this|how would the best|how would the very best|how would pros|how would professionals|best-in-class)\b[\s\S]{0,140}/gi,
     skipCodeLike: true
   },
 
@@ -160,7 +167,7 @@
   {
     kind: "artifact_reference",
     id: "artifact_reference",
-    re: /\b(file|component|hook|store|script|function|class|module|extension|indexeddb|database|db|table|manifest|service worker|content script|controller|adapter|readme|\.js|\.ts|\.tsx|\.jsx|\.css|\.json|\.md)\b[\s\S]{0,140}/gi,
+    re: /\b(component|hook|module|extension|indexeddb|database|db|table|manifest|service worker|content script|controller|adapter|readme|\.js|\.ts|\.tsx|\.jsx|\.css|\.json|\.md)\b[\s\S]{0,140}/gi,
     skipCodeLike: false
   },
   {
@@ -172,18 +179,22 @@
   {
     kind: "artifact_state_hint",
     id: "artifact_state",
-    re: /\b(already|existing|currently|stored|captured|saved|local|draft|previous|current|old|new|updated|changed|fixed|missing|broken|loaded|available|not loaded)\b[\s\S]{0,140}/gi
+    re: /\b(already exists|already decided|already implemented|existing version|existing setup|currently working|currently loaded|current task|current state|current implementation|current version|stored messages|captured messages|saved context|local storage|local only|previous chat|previous conversation|previous message|old debugging|old issue|old code|old prompt|new chat|new version|updated version|changed file|changed code|fixed bug|missing context|missing file|missing piece|broken flow|broken state|loaded messages|available context|not loaded)\b[\s\S]{0,140}/gi
   },
-
   {
     kind: "topic_shift",
     id: "topic_shift",
-    re: /\b(btw|by the way|new topic|separate question|another thing|different topic|switching gears|unrelated|anyway|moving on|next screen|next part|let's switch to)\b[\s\S]{0,140}/gi
+    re: /\b(btw|by the way|new topic|separate question|another thing|different topic|switching gears|anyway|moving on|next screen|next part|let's switch to|unrelated question|unrelated topic)\b[\s\S]{0,140}/gi
   },
     {
     kind: "output_failure",
     id: "assistant_output_failure",
     re: /\b(too much|too vague|vague language|what is this|what the fuck is this|is this supposed to help|no one can understand this|these aren't real instructions|these are not real instructions|not real instructions|sounds robotic|sounds fucking robotic|follow instructions|clear instructions|you ignored|ignoring the last message|wrong output|bad output|miles away|all over the place|cryptic)\b[\s\S]{0,160}/gi
+  },
+    {
+    kind: "trust_boundary",
+    id: "trust_boundary",
+    re: /\b(are you sure|just guessing|are you just guessing|talking out of your ass|supposed to believe this|believe this crap|making things up|made that up|hallucinating|hallucinated|can i trust this|is this true|is that true|verify this|prove it)\b[\s\S]{0,160}/gi
   },
 
   {
@@ -345,6 +356,9 @@ function escapeRegExp(value) {
 
   for (const rule of RULES) {
     if (rule.skipCodeLike && looksLikeCodeOrConfig(source)) {
+      continue;
+    }
+    if (rule.shortMessageOnly && normalizePhrase(source).length > 80) {
       continue;
     }
 
@@ -695,9 +709,17 @@ function escapeRegExp(value) {
   return true;
 }
 
-  function normalizeMessageText(message) {
-    return String(message?.text || "")
-      .replace(/\s+/g, " ")
+    function normalizeMessageText(message) {
+    return stripSpeakerPrefix(
+      String(message?.text || "")
+        .replace(/\s+/g, " ")
+        .trim()
+    );
+  }
+
+  function stripSpeakerPrefix(text) {
+    return String(text || "")
+      .replace(/^(you said:|chatgpt said:|assistant said:)\s*/i, "")
       .trim();
   }
 
