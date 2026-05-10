@@ -49,24 +49,6 @@
   "completion/checkpoint",
   "clarification_request",
   "frustration_escalation",
-  "quality_bar",
-  "role_contract",
-  "artifact_reference",
-  "artifact_state_hint",
-  "topic_shift"
-];const SIGNAL_KINDS = [
-  "instruction",
-  "proposal",
-  "agreement_check",
-  "confirmation",
-  "negation",
-  "rejection",
-  "correction",
-  "uncertainty",
-  "scope_limiter",
-  "completion/checkpoint",
-  "clarification_request",
-  "frustration_escalation",
   "output_failure",
   "alignment_question",
   "quality_bar",
@@ -99,10 +81,11 @@
     re: /\b(maybe we could|maybe you could|we could|you could|what if|how about|one option is|another option is|i suggest|i'd suggest|we should|let's|i would|could be better to)\b[\s\S]{0,140}/gi
   },
 
-  {
+   {
     kind: "agreement_check",
     id: "agreement_question",
-    re: /(?:^|\s)(right\?|correct\?|sound good\?|makes sense\?|does that make sense\?|is that okay\?|ok\?|okay\?|agree\?|fair\?)(?:\s|$)/gi
+    re: /(?:^|\s)(right\?|correct\?|sound good\?|makes sense\?|does that make sense\?|is that okay\?|ok\?|okay\?|agree\?|fair\?)(?:\s|$)/gi,
+    preserveQuestionMark: true
   },
 
   {
@@ -136,10 +119,10 @@
     re: /\b(maybe|probably|possibly|not sure|i'm not sure|i think|i guess|seems like|might|could be|unsure|unclear|i wonder|perhaps|idk)\b[\s\S]{0,120}/gi
   },
 
-  {
+    {
     kind: "scope_limiter",
     id: "scope_limit",
-    re: /\b(for now|for this|dev-only|local only|not product logic|not production|mvp|keep it simple|small|minimal|simple|no need to|don't overbuild|vanilla js only|no ui|no backend|no npm|no react|only|just)\b[\s\S]{0,140}/gi
+    re: /\b(for now|for this|dev-only|local only|not product logic|not production|mvp|mvp scope|keep it simple|small scope|minimal version|minimal|no need to|don't overbuild|vanilla js only|no ui|no backend|no npm|no react|only if|only when|only currently|just this|just for now|just enough|not now|not yet|out of scope)\b[\s\S]{0,140}/gi
   },
 
   {
@@ -372,7 +355,9 @@ function escapeRegExp(value) {
         continue;
       }
 
-      const phrase = normalizePhrase(trigger);
+            const phrase = rule.preserveQuestionMark
+        ? normalizeQuestionPhrase(trigger)
+        : normalizePhrase(trigger);
 
       if (!phrase) {
         continue;
@@ -707,6 +692,15 @@ function escapeRegExp(value) {
   function normalizeMessageText(message) {
     return String(message?.text || "")
       .replace(/\s+/g, " ")
+      .trim();
+  }
+
+    function normalizeQuestionPhrase(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/^[\s"'`.,:;!()[\]{}]+/, "")
+      .replace(/[\s"'`.,:;!()[\]{}]+$/, "")
       .trim();
   }
 
