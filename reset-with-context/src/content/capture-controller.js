@@ -179,7 +179,9 @@
     "msg",
     parts.conversationId,
     String(parts.index).padStart(4, "0"),
-    parts.role || "unknown"
+    parts.role || "unknown",
+    parts.textHash || "no_text",
+    parts.codeHash || "no_code"
   ].join("_");
 }
 
