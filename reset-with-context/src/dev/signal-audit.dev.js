@@ -68,13 +68,20 @@
   },
   {
     kind: "instruction",
-    id: "imperative_action",
-    re: /\b(build|create|make|write|rewrite|refactor|fix|update|change|add|remove|delete|move|rename|keep|use|avoid|stop|start|show|give|explain|summarize|audit|inspect|compare)\b[\s\S]{0,120}/gi
+    id: "strong_action_request",
+    re: /\b(build|create|write|rewrite|refactor|fix|update|change|remove|delete|move|rename|avoid|stop|summarize|audit|inspect|compare)\b[\s\S]{0,120}/gi
   },
   {
     kind: "instruction",
     id: "strong_constraint",
-    re: /\b(must not|do not|don't|never|always|important rule|critical|make sure|under no circumstance|must)\b[\s\S]{0,140}/gi
+    re: /\b(must not|never|always|important rule|critical|make sure|under no circumstance|must)\b[\s\S]{0,140}/gi
+  },  
+
+  {
+  kind: "instruction",
+  id: "weak_action_request",
+  re: /\b(make|add|keep|use|start|show|give|explain)\b[\s\S]{0,100}/gi,
+  shortMessageOnly: true
   },
 
   {
@@ -344,12 +351,48 @@ function looksLikeCodeOrConfig(text) {
   return false;
 }
 
+function looksLikeGeneratedHandoffOrMeta(text) {
+  const value = String(text || "").toLowerCase();
+
+  if (!value.trim()) {
+    return false;
+  }
+
+  const markers = [
+    "you are continuing",
+    "previous chatgpt conversation",
+    "compressed handoff",
+    "this handoff",
+    "handoff generated",
+    "current task",
+    "current state",
+    "loaded messages",
+    "currently loaded",
+    "do not infer missing history",
+    "do not restart from scratch",
+    "prefer user-authored",
+    "primary conversation context",
+    "relevant excerpts",
+    "how to continue",
+    "reset context",
+    "new chat"
+  ];
+
+  const hits = markers.filter((marker) => value.includes(marker)).length;
+
+  return hits >= 3;
+}
+
 function escapeRegExp(value) {
   return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
   function extractDraftSignalsFromText(text) {
   const source = String(text || "");
+   if (looksLikeGeneratedHandoffOrMeta(source)) {
+    return [];
+  }
+
   const normalizedSource = normalizePhrase(source);
   const results = [];
   const seen = new Set();
@@ -358,7 +401,7 @@ function escapeRegExp(value) {
     if (rule.skipCodeLike && looksLikeCodeOrConfig(source)) {
       continue;
     }
-    if (rule.shortMessageOnly && normalizePhrase(source).length > 80) {
+    if (rule.shortMessageOnly && normalizePhrase(source).length > 180) {
       continue;
     }
 
@@ -605,11 +648,14 @@ function escapeRegExp(value) {
   function printAllConversationAudit(summary) {
   console.group("[RWC_DEV] All conversation signal audit");
 
-    console.group("Signal counts by conversation");
+  console.group("Signal counts by conversation");
   console.table(
     summary.conversations.map((row) => ({
       title: row.title,
       messages: row.scannedMessages,
+      signalRate: `${Math.round(
+        (row.messagesWithSignals / Math.max(row.scannedMessages, 1)) * 100
+      )}%`,
       instruction: row.signalCounts.instruction || 0,
       proposal: row.signalCounts.proposal || 0,
       agreement: row.signalCounts.agreement_check || 0,
@@ -647,8 +693,8 @@ function escapeRegExp(value) {
   console.table(summary.globalSummary.commonNoisyPhrases);
   console.groupEnd();
 
-  console.group("Common missing categories");
-  console.table(summary.globalSummary.commonMissingCategories);
+  console.group("Common weak/rare categories");
+  console.table(summary.globalSummary.commonWeakCategories);
   console.groupEnd();
 
   console.groupEnd();
@@ -952,7 +998,7 @@ function escapeRegExp(value) {
     )
     .slice(0, 25);
 
-  const commonMissingCategories = Array.from(weakCategoryCounts.values())
+  const commonWeakCategories = Array.from(weakCategoryCounts.values())
     .sort(
       (a, b) =>
         b.conversations - a.conversations ||
@@ -960,10 +1006,10 @@ function escapeRegExp(value) {
     );
 
   const globalSummary = {
-    signalCounts: globalSignalCounts,
-    commonNoisyPhrases,
-    commonMissingCategories
-  };
+  signalCounts: globalSignalCounts,
+  commonNoisyPhrases,
+  commonWeakCategories
+};
 
   const summary = {
     conversations: conversationRows,
