@@ -1082,6 +1082,130 @@ async function listConversations() {
   return rows;
 }
 
+async function listConversationCoverage(userOptions = {}) {
+  const db = await getDb();
+
+  const options = {
+    minMessages: 0,
+    ...userOptions
+  };
+
+  const conversations = await readAll(db, STORES.conversations).catch(() => []);
+  const messages = await readAll(db, STORES.messages).catch(() => []);
+
+  const messagesByConversationId = new Map();
+
+  for (const message of messages) {
+    if (!message.conversationId) continue;
+
+    if (!messagesByConversationId.has(message.conversationId)) {
+      messagesByConversationId.set(message.conversationId, []);
+    }
+
+    messagesByConversationId.get(message.conversationId).push(message);
+  }
+
+  const rows = conversations
+    .map((conversation) => {
+      const conversationMessages =
+        messagesByConversationId.get(conversation.id) || [];
+
+      const userCount = conversationMessages.filter(
+        (message) => message.role === "user"
+      ).length;
+
+      const assistantCount = conversationMessages.filter(
+        (message) => message.role === "assistant"
+      ).length;
+
+      const unknownCount = conversationMessages.filter(
+        (message) => !["user", "assistant"].includes(message.role)
+      ).length;
+
+      const indexes = conversationMessages
+        .map((message) => message.index)
+        .filter((index) => Number.isFinite(index));
+
+      const firstIndex = indexes.length ? Math.min(...indexes) : null;
+      const lastIndex = indexes.length ? Math.max(...indexes) : null;
+
+      const capturedTimes = conversationMessages
+        .map((message) => message.capturedAt)
+        .filter(Boolean)
+        .sort();
+
+      const updatedTimes = conversationMessages
+        .map((message) => message.updatedAt)
+        .filter(Boolean)
+        .sort();
+
+      const totalTextLength = conversationMessages.reduce((sum, message) => {
+        return sum + String(message.text || "").length;
+      }, 0);
+
+      const averageTextLength = conversationMessages.length
+        ? Math.round(totalTextLength / conversationMessages.length)
+        : 0;
+
+      return {
+        title: conversation.title,
+        conversationId: conversation.id,
+        total: conversationMessages.length,
+        user: userCount,
+        assistant: assistantCount,
+        unknown: unknownCount,
+        firstIndex,
+        lastIndex,
+        avgTextLength: averageTextLength,
+        firstCapturedAt: capturedTimes[0] || null,
+        lastCapturedAt: capturedTimes[capturedTimes.length - 1] || null,
+        lastUpdatedAt: updatedTimes[updatedTimes.length - 1] || null,
+        coverageStatus: getCoverageStatus({
+          total: conversationMessages.length,
+          userCount,
+          assistantCount,
+          firstIndex,
+          lastIndex
+        }),
+        url: conversation.url
+      };
+    })
+    .filter((row) => row.total >= options.minMessages)
+    .sort((a, b) =>
+      String(b.lastUpdatedAt || "").localeCompare(String(a.lastUpdatedAt || ""))
+    );
+
+  console.group("[RWC_DEV] Conversation capture coverage");
+  console.table(rows);
+  console.groupEnd();
+
+  return rows;
+}
+
+function getCoverageStatus(stats) {
+  if (stats.total === 0) {
+    return "empty";
+  }
+
+  if (stats.total < 10) {
+    return "too_small";
+  }
+
+  if (stats.total < 30) {
+    return "light_capture";
+  }
+
+  if (stats.userCount === 0 || stats.assistantCount === 0) {
+    return "role_incomplete";
+  }
+
+  if (stats.total >= 100) {
+    return "strong_capture";
+  }
+
+  return "usable_capture";
+}
+
 async function inspectConversationMessages(conversationId, userOptions = {}) {
   const db = await getDb();
 
@@ -1130,6 +1254,7 @@ async function inspectConversationMessages(conversationId, userOptions = {}) {
   globalThis.RWC_DEV.auditAllConversations = auditAllConversations;
   globalThis.RWC_DEV.inspectConversationMessages = inspectConversationMessages;
   globalThis.RWC_DEV.listConversations = listConversations;
+  globalThis.RWC_DEV.listConversationCoverage = listConversationCoverage;
   globalThis.RWC_DEV.extractDraftSignalsFromText = extractDraftSignalsFromText;
   globalThis.RWC_DEV.signalAuditRules = RULES;
 
