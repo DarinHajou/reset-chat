@@ -22,6 +22,7 @@
         "src/shared/hash.js",
         "src/content/chatgpt-dom-adapter.js",
         "src/content/capture-controller.js",
+        "src/core/signal-extractor.js",
         "src/content/index.js"
       ],
       "run_at": "document_idle"
