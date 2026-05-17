@@ -10,20 +10,19 @@
     }
   };
 
-  function readVisibleMessages() {
-    const containers = findMessageContainers();
+  function readLoadedMessages() {
+  const containers = findMessageContainers();
 
-    const messages = containers
-      .map((container, index) => extractMessage(container, index))
-      .filter(Boolean)
-      .filter((message) => message.text || message.codeBlocks.length);
+  const messages = containers
+    .map((container, index) => extractMessage(container, index))
+    .filter(Boolean)
+    .filter((message) => message.text || message.codeBlocks.length);
 
-    return dedupeMessages(messages).map((message, index) => ({
-      ...message,
-      index
-    }));
-  }
-
+  return dedupeMessages(messages).map((message, index) => ({
+    ...message,
+    index
+  }));
+}
   function findMessageContainers() {
     const roleNodes = Array.from(
       document.querySelectorAll("[data-message-author-role]")
@@ -292,6 +291,7 @@
   }
 
   globalThis.RWC_DOM_ADAPTER = Object.freeze({
-    readVisibleMessages
-  });
+  readLoadedMessages,
+  readVisibleMessages: readLoadedMessages
+});
 })();

@@ -82,7 +82,7 @@
   async function captureNow(reason) {
     if (!started && reason !== "manual") return;
 
-  const loadedMessages = DOM_ADAPTER.readVisibleMessages();
+  const loadedMessages = DOM_ADAPTER.readLoadedMessages();
 
     if (!loadedMessages.length) {
       log("No loaded messages found.", { reason });
