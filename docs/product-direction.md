@@ -62,6 +62,7 @@ The reset handoff is the first usable product surface.
 
 Checkpoints are part of the larger product, but they should not block the first handoff feature.
 
+#######################################################################################
 Layer 0 — Capture
 
 Status: built and tested.
@@ -105,6 +106,8 @@ Messages are captured, stored, deduped, and separated by conversation.
 Current status:
 
 Working.
+
+####################################################################################
 Layer 1 — Primitive Signals
 
 Status: in progress.
@@ -200,6 +203,8 @@ It can strengthen nearby correction, rejection, output_failure, or trust_boundar
 Checkpoint:
 
 signal-extractor.js emits useful primitive signals from real messages without producing final context.
+
+#######################################################################################
 Layer 2 — Candidate State Changes
 
 Status: not started.
@@ -252,6 +257,8 @@ status
 Checkpoint:
 
 The system can propose tasks, decisions, corrections, rejected paths, artifact states, and open questions without treating them as final truth.
+
+##########################################################################################
 Layer 3 — Validity, Supersession, Scope
 
 Status: not started.
@@ -301,6 +308,8 @@ Prefer omission over false certainty.
 Checkpoint:
 
 The system can separate useful current context from stale or superseded context.
+
+########################################################################################
 Layer 4 — Session Reset Context
 
 Status: not started.
@@ -339,6 +348,8 @@ What does the next ChatGPT session need to know to continue correctly?
 Checkpoint:
 
 The system has a compact, source-linked session state that can be used for a reset handoff.
+
+##########################################################################################
 Layer 5 — Handoff / Reset Flow
 
 Status: first real user-facing feature after session reset context exists.
@@ -389,6 +400,8 @@ Low/conflict = review recommended
 Checkpoint:
 
 A new ChatGPT session can continue with less re-explaining than manual copy/paste.
+
+#########################################################################################
 Layer 6 — Checkpoints
 
 Status: future product expansion.
@@ -425,6 +438,8 @@ User clicks "mark important"
 Checkpoint:
 
 Important moments can be preserved independently of a single chat session.
+
+#######################################################################################
 Layer 7 — Project Continuity
 
 Status: later, but should influence the data model.
@@ -474,6 +489,8 @@ Checkpoints:
 Checkpoint:
 
 A user can continue work from project state, not just one chat.
+
+########################################################################################
 Layer 8 — Search and Traceability
 
 Status: later.
@@ -507,6 +524,8 @@ What did we decide before the reset?
 Checkpoint:
 
 The user can find where something changed, broke, or was decided without digging through long chats.
+
+########################################################################################
 Layer 9 — Sharing / Repo Export / Team Use
 
 Status: later hypothesis.
@@ -576,6 +595,36 @@ Which checkpoint introduced this bug?
 
 Not immediate MVP, but important for project continuity.
 
+This is the key design:
+
+Primitive = small evidence object
+Trigger = phrase that found it
+Span = the meaningful sentence/window around it
+Modifier = frustration/negation/uncertainty/etc.
+Later layer = decides what changed
+
+Example:
+
+"We are talking about the page header. Forget about the app nav bar."
+
+Layer 1 emits:
+
+{
+  kind: "correction",
+  subtype: "target_correction",
+  trigger: "forget about",
+  span: "Forget about the app nav bar",
+  nearbyContext: "We are talking about the page header...",
+  modifiers: ["frustration"],
+  artifactHints: ["page header", "app nav bar"]
+}
+
+Layer 2 later turns that into:
+
+Current target: page header
+Rejected target: app nav bar
+
+########################################################################################
 Current Build Status
 
 Done:
