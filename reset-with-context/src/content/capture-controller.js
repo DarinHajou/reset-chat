@@ -82,17 +82,17 @@
   async function captureNow(reason) {
     if (!started && reason !== "manual") return;
 
-    const visibleMessages = DOM_ADAPTER.readVisibleMessages();
+  const loadedMessages = DOM_ADAPTER.readVisibleMessages();
 
-    if (!visibleMessages.length) {
-      log("No visible messages found.", { reason });
+    if (!loadedMessages.length) {
+      log("No loaded messages found.", { reason });
       return;
     }
 
     const capturedAt = new Date().toISOString();
     const conversation = getConversationMeta();
 
-    const messages = visibleMessages.map((message) => {
+    const messages = loadedMessages.map((message) => {
       return normalizeCapturedMessage(message, conversation, capturedAt);
     });
 
@@ -128,7 +128,7 @@
 
     log("Captured visible messages.", {
       reason,
-      visible: messages.length,
+      loaded: messages.length,
       stored: response?.stored ?? null,
       total: response?.total ?? null
     });
