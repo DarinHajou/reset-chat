@@ -1182,6 +1182,76 @@ async function listConversationCoverage(userOptions = {}) {
   return rows;
 }
 
+async function extractSignalsForConversation(conversationId, userOptions = {}) {
+  if (!globalThis.RWC_SIGNAL_EXTRACTOR) {
+    throw new Error("RWC_SIGNAL_EXTRACTOR is not available.");
+  }
+
+  const db = await getDb();
+
+  const options = {
+    roles: ["user"],
+    maxMessages: Infinity,
+    minPriority: 0,
+    ...userOptions
+  };
+
+  const messages = await readAll(db, STORES.messages).catch(() => []);
+
+  const conversationMessages = messages
+    .filter((message) => message.conversationId === conversationId)
+    .filter((message) => {
+      if (!Array.isArray(options.roles) || options.roles.length === 0) {
+        return true;
+      }
+
+      return options.roles.includes(message.role);
+    })
+    .sort((a, b) => {
+      const aIndex = Number.isFinite(a.index) ? a.index : 0;
+      const bIndex = Number.isFinite(b.index) ? b.index : 0;
+      return aIndex - bIndex;
+    })
+    .slice(0, options.maxMessages);
+
+  const signals = globalThis.RWC_SIGNAL_EXTRACTOR
+    .extractSignalsFromMessages(conversationMessages)
+    .filter((signal) => signal.priority >= options.minPriority);
+
+  const countsByKind = signals.reduce((counts, signal) => {
+    counts[signal.kind] = (counts[signal.kind] || 0) + 1;
+    return counts;
+  }, {});
+
+  console.group(`[RWC_DEV] Extracted signals for ${conversationId}`);
+  console.log("Messages scanned:", conversationMessages.length);
+  console.table(
+    Object.entries(countsByKind)
+      .map(([kind, count]) => ({ kind, count }))
+      .sort((a, b) => b.count - a.count)
+  );
+  console.table(
+    signals.map((signal) => ({
+      kind: signal.kind,
+      subtype: signal.subtype,
+      priority: signal.priority,
+      confidence: signal.confidence,
+      trigger: signal.trigger,
+      modifiers: signal.modifiers.join(", "),
+      index: signal.messageIndex,
+      span: signal.span
+    }))
+  );
+  console.groupEnd();
+
+  return {
+    conversationId,
+    messagesScanned: conversationMessages.length,
+    countsByKind,
+    signals
+  };
+}
+
 function getCoverageStatus(stats) {
   if (stats.total === 0) {
     return "empty";
@@ -1255,6 +1325,7 @@ async function inspectConversationMessages(conversationId, userOptions = {}) {
   globalThis.RWC_DEV.inspectConversationMessages = inspectConversationMessages;
   globalThis.RWC_DEV.listConversations = listConversations;
   globalThis.RWC_DEV.listConversationCoverage = listConversationCoverage;
+  RWC_DEV.extractSignalsForConversation(conversationId)
   globalThis.RWC_DEV.extractDraftSignalsFromText = extractDraftSignalsFromText;
   globalThis.RWC_DEV.signalAuditRules = RULES;
 
