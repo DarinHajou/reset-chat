@@ -1052,13 +1052,86 @@ function escapeRegExp(value) {
 
   return rows;
 }
+async function listConversations() {
+  const db = await getDb();
+
+  const conversations = await readAll(db, STORES.conversations).catch(() => []);
+  const messages = await readAll(db, STORES.messages).catch(() => []);
+
+  const messageCounts = new Map();
+
+  for (const message of messages) {
+    const count = messageCounts.get(message.conversationId) || 0;
+    messageCounts.set(message.conversationId, count + 1);
+  }
+
+  const rows = conversations
+    .map((conversation) => ({
+      title: conversation.title,
+      conversationId: conversation.id,
+      count: messageCounts.get(conversation.id) || 0,
+      updatedAt: conversation.updatedAt,
+      url: conversation.url
+    }))
+    .sort((a, b) =>
+      String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))
+    );
+
+  console.table(rows);
+
+  return rows;
+}
+
+async function inspectConversationMessages(conversationId, userOptions = {}) {
+  const db = await getDb();
+
+  const options = {
+    maxMessages: 100,
+    ...userOptions
+  };
+
+  const messages = await readAll(db, STORES.messages).catch(() => []);
+
+  const rows = messages
+    .filter((message) => message.conversationId === conversationId)
+    .sort((a, b) => {
+      const aIndex = Number.isFinite(a.index) ? a.index : 0;
+      const bIndex = Number.isFinite(b.index) ? b.index : 0;
+      return aIndex - bIndex;
+    })
+    .slice(0, options.maxMessages)
+    .map((message) => ({
+    id: message.id,
+    index: message.index,
+    role: message.role,
+    roleConfidence: message.roleConfidence,
+    textHash: message.textHash,
+    textLength: String(message.text || "").length,
+    preview: limitText(
+      String(message.text || "")
+        .replace(/\s+/g, " ")
+        .trim(),
+      220
+    ),
+    sourceUrl: message.sourceUrl,
+    capturedAt: message.capturedAt,
+    updatedAt: message.updatedAt
+  }));
+  console.group(`[RWC_DEV] Stored messages for ${conversationId}`);
+  console.table(rows);
+  console.groupEnd();
+
+  return rows;
+}
+
   globalThis.RWC_DEV = globalThis.RWC_DEV || {};
 
   globalThis.RWC_DEV.auditSignals = auditSignals;
+  globalThis.RWC_DEV.auditAllConversations = auditAllConversations;
+  globalThis.RWC_DEV.inspectConversationMessages = inspectConversationMessages;
   globalThis.RWC_DEV.listConversations = listConversations;
   globalThis.RWC_DEV.extractDraftSignalsFromText = extractDraftSignalsFromText;
   globalThis.RWC_DEV.signalAuditRules = RULES;
-  globalThis.RWC_DEV.auditAllConversations = auditAllConversations;
 
   console.info("[RWC_DEV] Signal audit loaded. Run: await RWC_DEV.auditSignals()");
 })();
